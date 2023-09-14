@@ -19,7 +19,6 @@ from fake_useragent import UserAgent
 
 def extract_numbers(text):
     return ''.join(re.findall(r'\d', text))
-#yapılacaklar listes:
 #This instructs the user to install the necessary Python packages using pip by running the given command in the Terminal.
 #pip install requests beautifulsoup4 pillow python-pptx selenium fake_useragent
 
@@ -110,7 +109,7 @@ while True:
 
         sayfa_parsel = BeautifulSoup(page.content, "html.parser")
 
-        #fiyat toplayıcı
+        #rice collecter
         try:
             price = sayfa_parsel.find("span", class_="a-offscreen").string
             print("Price information collected")
@@ -122,7 +121,7 @@ while True:
                 price = "-"
                 print(f"An error occurred while collecting the price, error {e}")
 
-        #başlık toplayıcı
+        #title collecter
         try:
             product_title = sayfa_parsel.find("span", id="productTitle").string
             print("Title information collected")
@@ -148,7 +147,7 @@ while True:
         if review == None:
             print("review yine method")
             review = "-"
-        #yan bilgi toplayıcı:
+        #side info collecter:
         try:
             li_tags = sayfa_parsel.find("div", id="detailBullets_feature_div").find_all("li")
 
@@ -186,7 +185,7 @@ while True:
                 print(f"An error occurred while collecting the side information, error: {e}")
                 product_info = "-"
         print()
-            #satici ismi toplayıcı
+            #seller name collecter
         try:
             seller_name = sayfa_parsel.find("span", class_="a-size-small tabular-buybox-text-message").string
             print( "Seller name collected")
@@ -217,7 +216,7 @@ while True:
                 print(f"Seller name could not be fetched, error: {e}")
             
 
-        #ss toplayıcı
+        #ss collecter
         try:
             options = Options()
             options.add_argument('-headless')
@@ -390,7 +389,7 @@ while True:
 
                 sayfa_parsel = BeautifulSoup(page.content, "html.parser")
 
-                #fiyat toplayıcı
+                #rice collecter
                 try:
                     price = sayfa_parsel.find("span", class_="a-offscreen").string
                     print("Price information collected")
@@ -402,7 +401,7 @@ while True:
                         price = "-"
                         print(f"An error occurred while collecting the price, error {e}")
 
-                #başlık toplayıcı
+                #title collecter
                 try:
                     product_title = sayfa_parsel.find("span", id="productTitle").string
                     print("Title information collected")
@@ -428,7 +427,7 @@ while True:
                 if review == None:
                     print("review yine method")
                     review = "-"
-                #yan bilgi toplayıcı:
+                #side info collecter:
                 try:
                     li_tags = sayfa_parsel.find("div", id="detailBullets_feature_div").find_all("li")
 
@@ -466,7 +465,7 @@ while True:
                         print(f"An error occurred while collecting the side information, error: {e}")
                         product_info = "-"
                 print()
-                    #satici ismi toplayıcı
+                    #seller name collecter
                 try:
                     seller_name = sayfa_parsel.find("span", class_="a-size-small tabular-buybox-text-message").string
                     print( "Seller name collected")
@@ -497,7 +496,7 @@ while True:
                         print(f"Seller name could not be fetched, error: {e}")
                     
 
-                #ss toplayıcı
+                #ss collecter
                 try:
                     options = Options()
                     options.add_argument('-headless')
