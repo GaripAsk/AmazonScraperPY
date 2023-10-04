@@ -1,5 +1,5 @@
 import os
-import requests
+from curl_cffi import requests
 from bs4 import BeautifulSoup
 import re
 from pptx import Presentation
@@ -15,20 +15,382 @@ from PIL import Image
 import time
 from tkinter import Tk
 from tkinter.filedialog import askopenfilename
-from fake_useragent import UserAgent
+from pptx.dml.color import RGBColor
 
 def extract_numbers(text):
     return ''.join(re.findall(r'\d', text))
+
+def the_machine(url):
+
+    product_info = {}
+
+    stripped_product_info = {}
+
+    filtered_info = {}
+
+    new_output = {}
+
+    try:
+        link = requests.get(url, headers=headers, impersonate="chrome110")
+        sayfa_parsel = BeautifulSoup(link.content, "html.parser")
+
+        price = sayfa_parsel.find("span", class_="a-offscreen").string
+
+    except AttributeError:
+        print("An error occurred while collecting, trying second method")
+        try:
+            options = Options()
+            options.add_argument('-headless')
+
+            print("Starting the browser")
+
+            driver = webdriver.Firefox(options=options)
+            driver.maximize_window()
+
+            print("Browser started")
+
+            driver.get(url)
+
+            print("link uploaded")
+
+            time.sleep(2)
+            try:
+                cookie_accept_button = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "sp-cc-accept")))
+                if cookie_accept_button:
+                    cookie_accept_button.click()
+                    print("cookies accepted")
+            except Exception as e:
+                print(f"Cookie button couldn't find, error: {e}")
+            
+            time.sleep(5)
+            page_source = driver.page_source
+
+            sayfa_parsel = BeautifulSoup(page_source, "html.parser")
+            print("Html code have been taken")
+        except Exception as e:
+            print("Html code couldn't taken")
+    #price collecter
+    try:
+        price = sayfa_parsel.find("span", class_="a-offscreen").string
+        print("Price information collected")
+    except:
+        try:
+            price = sayfa_parsel.find("div", class_="a-spacing-top-mini").find("span", class_="a-offscreen")
+            print("Price information collected")
+        except Exception as e:
+            price = "-"
+            print(f"An error occurred while collecting the price, error {e}")
+
+    #title collecter
+    try:
+        product_title = sayfa_parsel.find("span", id="productTitle").string
+        print("Title information collected")
+    except Exception as e:
+        print(f"An error occurred while collecting the title information, error: {e}")
+        product_title = "-"
+
+    #review collecter
+    try:
+        review = sayfa_parsel.find("span", id="acrCustomerReviewText").string
+        print("Review information collected")
+    except:
+        try:
+            review = sayfa_parsel.select_one('span[data-hook="total-review-count"].a-size-base.a-color-secondary').string
+            print("Review information collected")
+        except:
+            try:
+                review = sayfa_parsel.find("span", data_hook="total-review-count").string
+                print("Review information collected")
+            except Exception as e:
+                print(f"An error occurred while collecting the review, error: {e}")
+                review = "-"
+    if review == None:
+        print("review is still method")
+        review = "-"
+    
+    #side info taker
+    time.sleep(2)
+    try:
+        li_tags = sayfa_parsel.find("div", id="detailBullets_feature_div").find_all("li")
+
+        for li in li_tags:
+            key_span = li.find('span', {'class': 'a-text-bold'})
+            value_span = li.find_all('span')[-1]  
+                    
+            if key_span and value_span:
+                key = key_span.string if key_span.string else key_span.text
+                value = value_span.string if value_span.string else value_span.text
+                        
+                key = re.sub(r'\s+', ' ', key).strip().replace(':', '').replace('\u200f', '').replace('\u200e', '')
+                value = re.sub(r'\s+', ' ', value).strip().replace(':', '').replace('\u200f', '').replace('\u200e', '')
+                    
+                product_info[key] = value
+        print("Additional info collected")
+    except:
+        try:
+            tr_tags = sayfa_parsel.find("div", class_="a-row a-spacing-top-base").find_all("tr")
+            if tr_tags is None:
+                tr_tags = sayfa_parsel.find('div', {'id': 'prodDetails', 'class': 'a-section'}).find_all("tr")
+                raise ValueError("tr_tags is empty, trying another method.")
+                
+
+            for tr in tr_tags:
+                key_span = tr.find('th', {'class': 'a-color-secondary a-size-base prodDetSectionEntry'})
+                value_span = tr.find('td', {'class': 'a-size-base prodDetAttrValue'}) 
+                        
+                if key_span and value_span:
+                    key = key_span.string if key_span.string else key_span.text
+                    value = value_span.string if value_span.string else value_span.text
+                            
+                    key = re.sub(r'\s+', ' ', key).strip().replace(':', '').replace('\u200f', '').replace('\u200e', '')
+                    value = re.sub(r'\s+', ' ', value).strip().replace(':', '').replace('\u200f', '').replace('\u200e', '')
+                        
+                    product_info[key] = value
+            print("Additional info collected")
+        except:
+            try:
+                tr_tags = sayfa_parsel.find("div", class_="a-row a-spacing-top-base").find_all("tr")
+                if tr_tags is None:
+                    tr_tags = sayfa_parsel.find('div', {'id': 'prodDetails', 'class': 'a-section'}).find_all("tr")
+                    raise ValueError("tr_tags is empty, trying another method.")
+
+                for tr in tr_tags:
+                    key_span = tr.find('th', class_="a-color-secondary a-size-base prodDetSectionEntry")
+                    value_span = tr.find('td', class_= "a-size-base prodDetAttrValue") 
+                            
+                    if key_span and value_span:
+                        key = key_span.string if key_span.string else key_span.text
+                        value = value_span.string if value_span.string else value_span.text
+                                
+                        key = re.sub(r'\s+', ' ', key).strip().replace(':', '').replace('\u200f', '').replace('\u200e', '')
+                        value = re.sub(r'\s+', ' ', value).strip().replace(':', '').replace('\u200f', '').replace('\u200e', '')
+                            
+                        product_info[key] = value    
+                        print("Additional info collected")            
+            except Exception as e:
+                print(f"An error occurred while collecting the side information, error: {e}")
+                product_info = "-"
+
+    #seller name collecter
+    try:
+        seller_name = sayfa_parsel.find("span", class_="a-size-small tabular-buybox-text-message").string
+        print( "Seller name collected")
+    except:
+        try:
+            seller_name_checker = sayfa_parsel.find("a", class_="a-link-normal", id="bylineInfo").string
+            match_for_en1 = re.search("Visit the (.+?) Store", seller_name_checker)
+            match_for_en2 = re.search("Brand: (.+?)", seller_name_checker)
+            match_for_de1 = re.search("Besuche den (.+?)-Store", seller_name_checker)
+            match_for_de2 = re.search("Marke: (.+?)", seller_name_checker)
+            match_for_tr1 = re.search("(.+?) Store’u ziyaret edin", seller_name_checker)
+            match_for_tr2 = re.search("Marka: (.+?)", seller_name_checker)
+            if match_for_en1:
+                seller_name = match_for_en1.group(1)
+            elif match_for_en2:
+                seller_name = match_for_en2.group(1)
+            elif match_for_de1:
+                seller_name = match_for_de1.group(1)
+            elif match_for_de2:
+                seller_name = match_for_de2.group(1)
+            elif match_for_tr1:
+                seller_name = match_for_tr1.group(1)
+            elif match_for_tr2:
+                seller_name = match_for_tr2.group(1)
+            print( "Seller name collected")
+        except Exception as e:
+                seller_name = "-"
+                print(f"Seller name could not be fetched, error: {e}")
+            
+
+    #ss collecter
+    try:
+        options = Options()
+        options.add_argument('-headless')
+
+        print("Starting the browser")
+
+        driver = webdriver.Firefox(options=options)
+        driver.maximize_window()
+
+        print("Browser started")
+
+        driver.get(url)
+
+        print("link uploaded")
+
+        time.sleep(2)
+        try:
+            cookie_accept_button = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "sp-cc-accept")))
+            if cookie_accept_button:
+                cookie_accept_button.click()
+                print("cookies accepted")
+        except Exception as e:
+            print(f"Cookie button couldn't find, error: {e}")
+
+        print("Scrolling down")
+
+        driver.execute_script("window.scrollBy(0, 200)")
+        driver.save_screenshot('screenshot.png')
+            
+        print("ss will taken")
+
+        im = Image.open("screenshot.png")
+
+        im_cropped = im.crop((0, 15, 1090, 600))
+
+        im_cropped.save("newimage.png")
+
+        image = Image.open("newimage.png")
+
+        width, height = image.size
+
+        new_width = 924
+        new_height = 500
+
+        resized_image = image.resize((new_width, new_height))
+
+        resized_image.save("newimage2.png")
+
+        print("Screenshot cropped")
+
+        driver.quit()
+
+        print("Screenshot successfully downloaded")
+
+    except Exception as e:
+        print(f"An error occurred while downloading the screenshot, reason: {e}")
+
+    if review:
+        review = extract_numbers(review)
+
+
+    filtered_info["Price"] = price
+
+    for key in search_keys:
+        if key in product_info:
+            stripped_product_info[key] = product_info[key].strip()
+                
+            if ';' in stripped_product_info[key]:
+                dimensions, weight_info = stripped_product_info[key].split(';', 1)
+                new_key = f"Product Weight"
+                    
+                filtered_info[new_key] = weight_info.strip()
+                    
+                filtered_info[key] = dimensions.strip()
+            else:
+                filtered_info[key] = stripped_product_info[key]
+                
+
+    for key, value in filtered_info.items():
+        new_key = translation_dict.get(key.strip(), key.strip())
+            
+        new_value = ' '.join(value_translation_dict.get(word, word) for word in value.split(' '))
+            
+        new_output[new_key] = new_value
+
+
+    product_title = product_title.strip()
+    product_title = product_title[:100]
+    try:
+        prs = Presentation()
+
+        prs.slide_width = Inches(13.333)
+        prs.slide_height = Inches(7.5)
+
+        slide_layout = prs.slide_layouts[1]  
+        slide = prs.slides.add_slide(slide_layout)
+
+        for shape in slide.shapes:
+            if not shape.has_text_frame:
+                continue
+            if shape.text_frame:
+                p = shape.text_frame.text = " "
+
+        title = slide.shapes.title
+
+        title.text = "Example products"
+
+        img_path = "newimage2.png"
+
+        with Image.open(img_path) as img:
+            width, height = img.size
+
+        width_inch = width / 96.0
+        height_inch = height / 96.0
+
+        left = Inches(0.4)
+        top = Inches(1.25)
+        slide.shapes.add_picture(img_path, left, top, Inches(width_inch-2), Inches(height_inch))
+
+        txBox = slide.shapes.add_textbox(Inches(9), Inches(1), Inches(3.40), Inches(6.30))
+
+        line = txBox.line
+        line.color.rgb = RGBColor(91, 155, 213)
+        line.width = Inches(0.005)
+
+        content = slide.placeholders[1]
+        text_frame = content.text_frame
+        p = text_frame.add_paragraph()
+        p.text = " "
+
+        tf = txBox.text_frame
+        tf.word_wrap = True
+
+        for key, value in new_output.items():
+            if "Ounces" in str(value):
+                try:
+                    weight_value = float(re.findall(r'\d+', value)[0])
+                    new_value = weight_value * 28
+                    value = f"{new_value} Gram"
+                except (ValueError, IndexError):
+                    pass 
+            elif "lb" in str(value) or "lbs" in str(value):
+                try:
+                    weight_value = float(re.findall(r'\d+', value)[0])
+                    new_value = weight_value * 454 
+                    value = f"{new_value} Gram"
+                except (ValueError, IndexError):
+                        pass
+
+            p = tf.add_paragraph()
+            p.text = f"{key}: {value}"
+            p.font.bold = False
+            p.font.size = Pt(18)
+            p.font.name = 'Calibri Light'
+            p.alignment = 1
+
+        p = tf.add_paragraph()
+        p.text = f"Review numbers: {review}"
+        p.font.bold = False
+        p.font.size = Pt(18)
+        p.font.name = 'Calibri Light'
+        p.alignment = 1
+
+        p = tf.add_paragraph()
+        p.text = f"Seller: {seller_name}" 
+        p.font.bold = False
+        p.font.size = Pt(18)
+        p.font.name = 'Calibri Light'
+        p.alignment = 1
+
+        tf.margin_top = Inches(1.70)
+
+        prs.save(f"{product_title}.pptx")
+
+        os.remove("newimage.png")
+        os.remove("screenshot.png")
+        os.remove("newimage2.png")
+        print("PowerPoint project created")
+    except Exception as e:
+        print(f"An error occurred while creating PowerPoint Project, hata:{e}")
+        import traceback
+        traceback.print_exc()
+
+
+#yapılacaklar listes:
 #This instructs the user to install the necessary Python packages using pip by running the given command in the Terminal.
 #pip install requests beautifulsoup4 pillow python-pptx selenium fake_useragent
 
-product_info = {}
-
-stripped_product_info = {}
-
-filtered_info = {}
-
-new_output = {}
 
 search_keys = [
     "Produktabmessungen", "Produktabmessungen   ",
@@ -74,10 +436,23 @@ value_translation_dict = {
     'Ounces': 'Ounces'
 }
 
-ua = UserAgent()
 
-headers = {"User-Agent": ua.random,
-           "Referer": "https://www.ebay.com/itm/313672711737?_trkparms=pageci%3Abc8d8c2e-51a9-11ee-bc8a-52f5acfd2992%7Cparentrq%3A8b0cecf418a0a9fca50cd966fffff8de%7Ciid%3A1"}
+headers = {
+    'authority': 'www.amazon.com',
+    'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+    'cache-control': 'no-cache',
+    'dnt': '1',
+    'pragma': 'no-cache',
+    'sec-ch-ua': '"Chromium";v="116", "Not)A;Brand";v="24", "Google Chrome";v="116"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-platform': '"Windows"',
+    'sec-fetch-dest': 'document',
+    'sec-fetch-mode': 'navigate',
+    'sec-fetch-site': 'cross-site',
+    'sec-fetch-user': '?1',
+    'upgrade-insecure-requests': '1',
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
+}
 
 
 while True:
@@ -92,273 +467,9 @@ while True:
         print("1: Single info retrieval selected.")
 
         url = input("Enter URL: ")
-        s = requests.Session()
+        aylık_satış = input(f"{url} \nLinki yukarda ki eşya için aylık satış sayısını girin: ")
 
-        if re.match(r"https://www.amazon.com/", url):
-            s.get('https://www.amazon.com')
-        elif re.match(r"https://www.amazon.de", url):
-            s.get('https://www.amazon.de')
-        elif re.match(r"https://www.amazon.co.uk/", url):
-            s.get('https://www.amazon.co.uk')
-        else:
-            print("Couldn't define the site")
-
-        page = s.get(url, headers=headers)
-
-        time.sleep(2)
-
-        sayfa_parsel = BeautifulSoup(page.content, "html.parser")
-
-        #rice collecter
-        try:
-            price = sayfa_parsel.find("span", class_="a-offscreen").string
-            print("Price information collected")
-        except:
-            try:
-                price = sayfa_parsel.find("div", class_="a-spacing-top-mini").find("span", class_="a-offscreen")
-                print("Price information collected")
-            except Exception as e:
-                price = "-"
-                print(f"An error occurred while collecting the price, error {e}")
-
-        #title collecter
-        try:
-            product_title = sayfa_parsel.find("span", id="productTitle").string
-            print("Title information collected")
-        except Exception as e:
-            print(f"An error occurred while collecting the title information, error: {e}")
-            product_title = "-"
-
-        #review toplayıcı
-        try:
-            review = sayfa_parsel.find("span", id="acrCustomerReviewText").string
-            print("Review information collected")
-        except:
-            try:
-                review = sayfa_parsel.select_one('span[data-hook="total-review-count"].a-size-base.a-color-secondary').string
-                print("Review information collected")
-            except:
-                try:
-                    review = sayfa_parsel.find("span", data_hook="total-review-count").string
-                    print("Review information collected")
-                except Exception as e:
-                    print(f"An error occurred while collecting the review, error: {e}")
-                    review = "-"
-        if review == None:
-            print("review yine method")
-            review = "-"
-        #side info collecter:
-        try:
-            li_tags = sayfa_parsel.find("div", id="detailBullets_feature_div").find_all("li")
-
-            for li in li_tags:
-                key_span = li.find('span', {'class': 'a-text-bold'})
-                value_span = li.find_all('span')[-1]  
-                    
-                if key_span and value_span:
-                    key = key_span.string if key_span.string else key_span.text
-                    value = value_span.string if value_span.string else value_span.text
-                        
-                    key = re.sub(r'\s+', ' ', key).strip().replace(':', '').replace('\u200f', '').replace('\u200e', '')
-                    value = re.sub(r'\s+', ' ', value).strip().replace(':', '').replace('\u200f', '').replace('\u200e', '')
-                    
-                    product_info[key] = value
-            print("Additional info collected")
-        except:
-            try:
-                tr_tags = sayfa_parsel.find("table", id="productDetails_techSpec_section_1").find_all("tr")
-
-                for tr in tr_tags:
-                    key_span = tr.find('th', {'class': 'a-color-secondary a-size-base prodDetSectionEntry'})
-                    value_span = tr.find('td', {'class': 'a-size-base prodDetAttrValue'}) 
-                        
-                    if key_span and value_span:
-                        key = key_span.string if key_span.string else key_span.text
-                        value = value_span.string if value_span.string else value_span.text
-                            
-                        key = re.sub(r'\s+', ' ', key).strip().replace(':', '').replace('\u200f', '').replace('\u200e', '')
-                        value = re.sub(r'\s+', ' ', value).strip().replace(':', '').replace('\u200f', '').replace('\u200e', '')
-                        
-                        product_info[key] = value
-                print("Additional info collected")
-            except Exception as e:
-                print(f"An error occurred while collecting the side information, error: {e}")
-                product_info = "-"
-        print()
-            #seller name collecter
-        try:
-            seller_name = sayfa_parsel.find("span", class_="a-size-small tabular-buybox-text-message").string
-            print( "Seller name collected")
-        except:
-            try:
-                seller_name_checker = sayfa_parsel.find("a", class_="a-link-normal", id="bylineInfo").string
-                match_for_en1 = re.search("Visit the (.+?) Store", seller_name_checker)
-                match_for_en2 = re.search("Brand: (.+?)", seller_name_checker)
-                match_for_de1 = re.search("Besuche den (.+?)-Store", seller_name_checker)
-                match_for_de2 = re.search("Marke: (.+?)", seller_name_checker)
-                match_for_tr1 = re.search("(.+?) Store’u ziyaret edin", seller_name_checker)
-                match_for_tr2 = re.search("Marka: (.+?)", seller_name_checker)
-                if match_for_en1:
-                    seller_name = match_for_en1.group(1)
-                elif match_for_en2:
-                    seller_name = match_for_en2.group(1)
-                elif match_for_de1:
-                    seller_name = match_for_de1.group(1)
-                elif match_for_de2:
-                    seller_name = match_for_de2.group(1)
-                elif match_for_tr1:
-                    seller_name = match_for_tr1.group(1)
-                elif match_for_tr2:
-                    seller_name = match_for_tr2.group(1)
-                print( "Seller name collected")
-            except Exception as e:
-                seller_name = "-"
-                print(f"Seller name could not be fetched, error: {e}")
-            
-
-        #ss collecter
-        try:
-            options = Options()
-            options.add_argument('-headless')
-
-            print("Starting the browser")
-
-            driver = webdriver.Firefox(options=options)
-            driver.maximize_window()
-
-            print("Browser started")
-
-            driver.get(url)
-
-            print("link uploaded")
-
-            time.sleep(2)
-            try:
-                cookie_accept_button = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "sp-cc-accept")))
-                if cookie_accept_button:
-                    cookie_accept_button.click()
-                    print("cookies accepted")
-            except Exception as e:
-                print(f"Cookie button couldn't find, error: {e}")
-
-            print("Scrolling down")
-
-            driver.execute_script("window.scrollBy(0, 200)")
-            driver.save_screenshot('screenshot.png')
-            
-            print("ss will taken")
-
-            im = Image.open("screenshot.png")
-
-            im_cropped = im.crop((0, 35, 1090, 600))
-
-            im_cropped.save("newimage.png")
-
-            print("ss have been taken and cropped")
-
-            driver.quit()
-
-            print("Screenshot successfully downloaded")
-
-        except Exception as e:
-            print(f"An error occurred while downloading the screenshot, reason: {e}")
-
-        if review:
-            review = extract_numbers(review)
-
-
-        filtered_info["Price"] = price
-
-        translated_info = {}
-        for key in search_keys:
-            if key in product_info:
-                stripped_product_info[key] = product_info[key].strip()
-                
-                if ';' in stripped_product_info[key]:
-                    dimensions, weight_info = stripped_product_info[key].split(';', 1)
-                    new_key = f"Product Weight"
-                    
-                    filtered_info[new_key] = weight_info.strip()
-                    
-                    filtered_info[key] = dimensions.strip()
-                else:
-                    filtered_info[key] = stripped_product_info[key]
-                
-
-        for key, value in filtered_info.items():
-            new_key = translation_dict.get(key.strip(), key.strip())
-            
-            new_value = ' '.join(value_translation_dict.get(word, word) for word in value.split(' '))
-            
-            new_output[new_key] = new_value
-
-
-        product_title = product_title.strip()
-        product_title = product_title[:100]
-        try:
-            prs = Presentation()
-
-            prs.slide_width = Inches(13.333)
-            prs.slide_height = Inches(7.5)
-
-            slide_layout = prs.slide_layouts[1]  
-            slide = prs.slides.add_slide(slide_layout)
-
-            title = slide.shapes.title
-
-            title.text = "Example Product"
-
-            img_path = "newimage.png"
-
-            with Image.open(img_path) as img:
-                width, height = img.size
-
-            width_inch = width / 96.0
-            height_inch = height / 96.0
-
-            left = Inches(0.2)
-            top = Inches(1.2)
-            slide.shapes.add_picture(img_path, left, top, Inches(width_inch - 2), Inches(height_inch))
-
-            txBox = slide.shapes.add_textbox(Inches(9.5), Inches(2.5), Inches(4), Inches(5))
-            tf = txBox.text_frame
-            tf.word_wrap = True
-
-            for key, value in new_output.items():
-                if "Ounces" in str(value):
-                    try:
-                        weight_value = float(re.findall(r'\d+', value)[0])
-                        new_value = weight_value * 28
-                        value = f"{new_value} Gram"
-                    except (ValueError, IndexError):
-                        pass 
-
-                p = tf.add_paragraph()
-                p.text = f"{key}: {value}"
-                p.font.bold = False
-                p.font.size = Pt(18)
-                p.font.name = 'Calibri Regular'
-
-
-            p = tf.add_paragraph()
-            p.text = f"Number of reviews: {review}"
-            p.font.bold = False
-            p.font.size = Pt(18)
-            p.font.name = 'Calibri Regular'
-
-            p = tf.add_paragraph()
-            p.text = f"Seller: {seller_name}" 
-            p.font.bold = False
-            p.font.size = Pt(18)
-            p.font.name = 'Calibri Regular'
-
-            prs.save(f"{product_title}.pptx")
-
-            os.remove("newimage.png")
-            os.remove("screenshot.png")
-            print("PowerPoint created")
-        except Exception as e:
-             print(f"PowerPoint couldn't created, error: {e}")
+        the_machine(url, aylık_satış)
 
     elif secim == '2':
         print("2: List-based info retrieval selected.")
@@ -372,273 +483,8 @@ while True:
             for url in urls: 
                 url = url.strip()
 
-                s = requests.Session()
+                the_machine(url)
 
-                if re.match(r"https://www.amazon.com/", url):
-                    s.get('https://www.amazon.com')
-                elif re.match(r"https://www.amazon.de", url):
-                    s.get('https://www.amazon.de')
-                elif re.match(r"https://www.amazon.co.uk/", url):
-                    s.get('https://www.amazon.co.uk')
-                else:
-                    print("Couldn't define the site")
-
-                page = s.get(url, headers=headers)
-
-                time.sleep(2)
-
-                sayfa_parsel = BeautifulSoup(page.content, "html.parser")
-
-                #rice collecter
-                try:
-                    price = sayfa_parsel.find("span", class_="a-offscreen").string
-                    print("Price information collected")
-                except:
-                    try:
-                        price = sayfa_parsel.find("div", class_="a-spacing-top-mini").find("span", class_="a-offscreen")
-                        print("Price information collected")
-                    except Exception as e:
-                        price = "-"
-                        print(f"An error occurred while collecting the price, error {e}")
-
-                #title collecter
-                try:
-                    product_title = sayfa_parsel.find("span", id="productTitle").string
-                    print("Title information collected")
-                except Exception as e:
-                    print(f"An error occurred while collecting the title information, error: {e}")
-                    product_title = "-"
-
-                #review toplayıcı
-                try:
-                    review = sayfa_parsel.find("span", id="acrCustomerReviewText").string
-                    print("Review information collected")
-                except:
-                    try:
-                        review = sayfa_parsel.select_one('span[data-hook="total-review-count"].a-size-base.a-color-secondary').string
-                        print("Review information collected")
-                    except:
-                        try:
-                            review = sayfa_parsel.find("span", data_hook="total-review-count").string
-                            print("Review information collected")
-                        except Exception as e:
-                            print(f"An error occurred while collecting the review, error: {e}")
-                            review = "-"
-                if review == None:
-                    print("review yine method")
-                    review = "-"
-                #side info collecter:
-                try:
-                    li_tags = sayfa_parsel.find("div", id="detailBullets_feature_div").find_all("li")
-
-                    for li in li_tags:
-                        key_span = li.find('span', {'class': 'a-text-bold'})
-                        value_span = li.find_all('span')[-1]  
-                            
-                        if key_span and value_span:
-                            key = key_span.string if key_span.string else key_span.text
-                            value = value_span.string if value_span.string else value_span.text
-                                
-                            key = re.sub(r'\s+', ' ', key).strip().replace(':', '').replace('\u200f', '').replace('\u200e', '')
-                            value = re.sub(r'\s+', ' ', value).strip().replace(':', '').replace('\u200f', '').replace('\u200e', '')
-                            
-                            product_info[key] = value
-                    print("Additional info collected")
-                except:
-                    try:
-                        tr_tags = sayfa_parsel.find("table", id="productDetails_techSpec_section_1").find_all("tr")
-
-                        for tr in tr_tags:
-                            key_span = tr.find('th', {'class': 'a-color-secondary a-size-base prodDetSectionEntry'})
-                            value_span = tr.find('td', {'class': 'a-size-base prodDetAttrValue'}) 
-                                
-                            if key_span and value_span:
-                                key = key_span.string if key_span.string else key_span.text
-                                value = value_span.string if value_span.string else value_span.text
-                                    
-                                key = re.sub(r'\s+', ' ', key).strip().replace(':', '').replace('\u200f', '').replace('\u200e', '')
-                                value = re.sub(r'\s+', ' ', value).strip().replace(':', '').replace('\u200f', '').replace('\u200e', '')
-                                
-                                product_info[key] = value
-                        print("Additional info collected")
-                    except Exception as e:
-                        print(f"An error occurred while collecting the side information, error: {e}")
-                        product_info = "-"
-                print()
-                    #seller name collecter
-                try:
-                    seller_name = sayfa_parsel.find("span", class_="a-size-small tabular-buybox-text-message").string
-                    print( "Seller name collected")
-                except:
-                    try:
-                        seller_name_checker = sayfa_parsel.find("a", class_="a-link-normal", id="bylineInfo").string
-                        match_for_en1 = re.search("Visit the (.+?) Store", seller_name_checker)
-                        match_for_en2 = re.search("Brand: (.+?)", seller_name_checker)
-                        match_for_de1 = re.search("Besuche den (.+?)-Store", seller_name_checker)
-                        match_for_de2 = re.search("Marke: (.+?)", seller_name_checker)
-                        match_for_tr1 = re.search("(.+?) Store’u ziyaret edin", seller_name_checker)
-                        match_for_tr2 = re.search("Marka: (.+?)", seller_name_checker)
-                        if match_for_en1:
-                            seller_name = match_for_en1.group(1)
-                        elif match_for_en2:
-                            seller_name = match_for_en2.group(1)
-                        elif match_for_de1:
-                            seller_name = match_for_de1.group(1)
-                        elif match_for_de2:
-                            seller_name = match_for_de2.group(1)
-                        elif match_for_tr1:
-                            seller_name = match_for_tr1.group(1)
-                        elif match_for_tr2:
-                            seller_name = match_for_tr2.group(1)
-                        print( "Seller name collected")
-                    except Exception as e:
-                        seller_name = "-"
-                        print(f"Seller name could not be fetched, error: {e}")
-                    
-
-                #ss collecter
-                try:
-                    options = Options()
-                    options.add_argument('-headless')
-
-                    print("Starting the browser")
-
-                    driver = webdriver.Firefox(options=options)
-                    driver.maximize_window()
-
-                    print("Browser started")
-
-                    driver.get(url)
-
-                    print("link uploaded")
-
-                    time.sleep(2)
-                    try:
-                        cookie_accept_button = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "sp-cc-accept")))
-                        if cookie_accept_button:
-                            cookie_accept_button.click()
-                            print("cookies accepted")
-                    except Exception as e:
-                        print(f"Cookie button couldn't find, error: {e}")
-
-                    print("Scrolling down")
-
-                    driver.execute_script("window.scrollBy(0, 200)")
-                    driver.save_screenshot('screenshot.png')
-                    
-                    print("ss will taken")
-
-                    im = Image.open("screenshot.png")
-
-                    im_cropped = im.crop((0, 35, 1090, 600))
-
-                    im_cropped.save("newimage.png")
-
-                    print("ss have been taken and cropped")
-
-                    driver.quit()
-
-                    print("Screenshot successfully downloaded")
-
-                except Exception as e:
-                    print(f"An error occurred while downloading the screenshot, reason: {e}")
-
-                if review:
-                    review = extract_numbers(review)
-
-
-                filtered_info["Price"] = price
-
-                translated_info = {}
-                for key in search_keys:
-                    if key in product_info:
-                        stripped_product_info[key] = product_info[key].strip()
-                        
-                        if ';' in stripped_product_info[key]:
-                            dimensions, weight_info = stripped_product_info[key].split(';', 1)
-                            new_key = f"Product Weight"
-                            
-                            filtered_info[new_key] = weight_info.strip()
-                            
-                            filtered_info[key] = dimensions.strip()
-                        else:
-                            filtered_info[key] = stripped_product_info[key]
-                        
-
-                for key, value in filtered_info.items():
-                    new_key = translation_dict.get(key.strip(), key.strip())
-                    
-                    new_value = ' '.join(value_translation_dict.get(word, word) for word in value.split(' '))
-                    
-                    new_output[new_key] = new_value
-
-
-                product_title = product_title.strip()
-                product_title = product_title[:100]
-                try:
-                    prs = Presentation()
-
-                    prs.slide_width = Inches(13.333)
-                    prs.slide_height = Inches(7.5)
-
-                    slide_layout = prs.slide_layouts[1]  
-                    slide = prs.slides.add_slide(slide_layout)
-
-                    title = slide.shapes.title
-
-                    title.text = "Example Product"
-
-                    img_path = "newimage.png"
-
-                    with Image.open(img_path) as img:
-                        width, height = img.size
-
-                    width_inch = width / 96.0
-                    height_inch = height / 96.0
-
-                    left = Inches(0.2)
-                    top = Inches(1.2)
-                    slide.shapes.add_picture(img_path, left, top, Inches(width_inch - 2), Inches(height_inch))
-
-                    txBox = slide.shapes.add_textbox(Inches(9.5), Inches(2.5), Inches(4), Inches(5))
-                    tf = txBox.text_frame
-                    tf.word_wrap = True
-
-                    for key, value in new_output.items():
-                        if "Ounces" in str(value):
-                            try:
-                                weight_value = float(re.findall(r'\d+', value)[0])
-                                new_value = weight_value * 28
-                                value = f"{new_value} Gram"
-                            except (ValueError, IndexError):
-                                pass 
-
-                        p = tf.add_paragraph()
-                        p.text = f"{key}: {value}"
-                        p.font.bold = False
-                        p.font.size = Pt(18)
-                        p.font.name = 'Calibri Regular'
-
-
-                    p = tf.add_paragraph()
-                    p.text = f"Number of reviews: {review}"
-                    p.font.bold = False
-                    p.font.size = Pt(18)
-                    p.font.name = 'Calibri Regular'
-
-                    p = tf.add_paragraph()
-                    p.text = f"Seller: {seller_name}" 
-                    p.font.bold = False
-                    p.font.size = Pt(18)
-                    p.font.name = 'Calibri Regular'
-
-                    prs.save(f"{product_title}.pptx")
-
-                    os.remove("newimage.png")
-                    os.remove("screenshot.png")
-                    print("PowerPoint created")
-                except Exception as e:
-                    print(f"PowerPoint couldn't created, error: {e}")
     elif secim == '3':
         print("Exiting...")
         break 
